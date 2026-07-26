@@ -131,6 +131,11 @@ jobs:
     # mainへのpush または 手動実行のみデプロイ（PRは除外）
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
+    # OIDCトークンの発行に必要。buildジョブには付けない（不要な権限は渡さない）
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       # --------------------------------------------------------
       # ステップ1: チェックアウト（deployジョブでも必要）
@@ -166,18 +171,17 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-1
-          # secrets はGitHub → Settings → Secrets and variables → Actions で設定
-          # AWS_ACCESS_KEY_ID        = IAMユーザーのアクセスキーID
-          # AWS_SECRET_ACCESS_KEY    = IAMユーザーのシークレットアクセスキー
-          # AWS_REGION               = リージョン（例: us-east-1）
+          # OIDC認証（2026-07-26移行）。長期のアクセスキーはGitHubに置かない。
+          # GitHubが短命のトークンを発行し、AWSがそれを一時的な認証情報に交換する。
           #
-          # 【設定しないもの】
-          # role-to-assume: IAMロールを引き受ける方法（OIDC）
-          #   理由: よりセキュアだが設定が複雑。
-          #         Phase 6（DevOps）でOIDCに移行予定。
+          # ロールの定義: infrastructure/github-oidc/main.tf
+          # 信頼ポリシーはリポジトリ名ではなく不変の数値IDで照合している
+          # （解放されたアカウント名を第三者が取得した場合に備えるため）。
+          #
+          # 失敗時に "Not authorized to perform sts:AssumeRoleWithWebIdentity"
+          # が出たら、まずトークンのsubクレームと信頼ポリシーを突き合わせること。
 
       # --------------------------------------------------------
       # ステップ6: S3へデプロイ

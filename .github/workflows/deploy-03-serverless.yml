@@ -30,6 +30,12 @@ jobs:
   deploy:
     name: Update Lambda function code
     runs-on: ubuntu-latest
+
+    # OIDCトークンの発行に必要
+    permissions:
+      id-token: write
+      contents: read
+
     # mainへのpush or 手動実行のみ実際にデプロイする（PRはzip作成の確認のみ）
     steps:
       - name: Checkout
@@ -43,12 +49,12 @@ jobs:
             cd -
           done
 
+      # OIDC認証（2026-07-26移行）。ロール定義は infrastructure/github-oidc/main.tf
       - name: Configure AWS credentials
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-1
 
       - name: Update function code

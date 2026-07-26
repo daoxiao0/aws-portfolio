@@ -1,0 +1,9 @@
+# State can contain resource attributes and must never reach a public
+# repository. terraform.tfvars is committed here on purpose: it holds only the
+# repository's public numeric IDs.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+tfplan
+*.tfplan
