@@ -101,6 +101,15 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:cloudfront::536697227701:distribution/E2A0IOWER5T8MD"
       },
       {
+        # Phase 02's workflow has been failing since 2026-07-11 for want of
+        # this: the IAM user it used never had the permission either. Read
+        # only, and ValidateTemplate does not support resource-level scoping.
+        Sid      = "Phase02TemplateValidation"
+        Effect   = "Allow"
+        Action   = "cloudformation:ValidateTemplate"
+        Resource = "*"
+      },
+      {
         Sid    = "Phase03Frontend"
         Effect = "Allow"
         Action = ["s3:PutObject", "s3:DeleteObject", "s3:GetObject", "s3:ListBucket"]
