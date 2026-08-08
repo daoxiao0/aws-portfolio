@@ -98,7 +98,7 @@ npm --version
 ### 0-6. Gitの基本（このリポジトリを手元に置く）
 
 ```bash
-git clone https://github.com/daoxiao01230/aws-portfolio.git
+git clone https://github.com/daoxiao0/aws-portfolio.git
 cd aws-portfolio
 ```
 
