@@ -1,51 +1,151 @@
 # ============================================================
-# Lambda 実行ロール
-# 4つのLambda関数が共通で使うロール（DynamoDB CRUD + CloudWatch Logs）
+# Lambda 実行ロール（関数ごとに分離・最小権限）
+# 4つのLambda関数は以前は1つの共有ロールを使い、DynamoDBの全CRUD権限
+# （PutItem/GetItem/Query/UpdateItem/DeleteItem）を4関数すべてに一律付与
+# していた。各ハンドラーが実際に呼ぶAPIは1種類のみなので、関数ごとに
+# 専用ロール＋そのAPI1つだけを許可するポリシーに分離する。
+# 設計判断の詳細は docs/IAM-Least-Privilege.md 参照
 # ============================================================
-resource "aws_iam_role" "lambda_exec" {
-  name = "${var.project_name}-lambda-exec"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
+# 4ロール共通の信頼ポリシー（Lambdaサービスのみがこのロールを引き受けられる）
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+# ----------------------------------------------------------
+# create_entry — dynamodb:PutItem のみ（backend/lambda/create_entry/handler.py 参照）
+# ----------------------------------------------------------
+resource "aws_iam_role" "create_entry" {
+  name               = "${var.project_name}-create-entry-exec"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 
   tags = {
     Project = var.project_name
   }
 }
 
-# CloudWatch Logsへの書き込み権限（AWS管理ポリシー）
-resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role       = aws_iam_role.lambda_exec.name
+resource "aws_iam_role_policy_attachment" "create_entry_logs" {
+  role       = aws_iam_role.create_entry.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# DynamoDBテーブルへのCRUD権限（このテーブルのみに限定）
-resource "aws_iam_role_policy" "lambda_dynamodb" {
-  name = "${var.project_name}-lambda-dynamodb"
-  role = aws_iam_role.lambda_exec.id
+resource "aws_iam_role_policy" "create_entry_dynamodb" {
+  name = "${var.project_name}-create-entry-dynamodb"
+  role = aws_iam_role.create_entry.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-        ]
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem"]
+        Resource = aws_dynamodb_table.entries.arn
+      }
+    ]
+  })
+}
+
+# ----------------------------------------------------------
+# list_entries — dynamodb:Query のみ（backend/lambda/list_entries/handler.py 参照）
+# ----------------------------------------------------------
+resource "aws_iam_role" "list_entries" {
+  name               = "${var.project_name}-list-entries-exec"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "list_entries_logs" {
+  role       = aws_iam_role.list_entries.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "list_entries_dynamodb" {
+  name = "${var.project_name}-list-entries-dynamodb"
+  role = aws_iam_role.list_entries.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:Query"]
+        Resource = aws_dynamodb_table.entries.arn
+      }
+    ]
+  })
+}
+
+# ----------------------------------------------------------
+# update_entry — dynamodb:UpdateItem のみ（backend/lambda/update_entry/handler.py 参照）
+# ----------------------------------------------------------
+resource "aws_iam_role" "update_entry" {
+  name               = "${var.project_name}-update-entry-exec"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "update_entry_logs" {
+  role       = aws_iam_role.update_entry.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "update_entry_dynamodb" {
+  name = "${var.project_name}-update-entry-dynamodb"
+  role = aws_iam_role.update_entry.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:UpdateItem"]
+        Resource = aws_dynamodb_table.entries.arn
+      }
+    ]
+  })
+}
+
+# ----------------------------------------------------------
+# delete_entry — dynamodb:DeleteItem のみ（backend/lambda/delete_entry/handler.py 参照）
+# ----------------------------------------------------------
+resource "aws_iam_role" "delete_entry" {
+  name               = "${var.project_name}-delete-entry-exec"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "delete_entry_logs" {
+  role       = aws_iam_role.delete_entry.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "delete_entry_dynamodb" {
+  name = "${var.project_name}-delete-entry-dynamodb"
+  role = aws_iam_role.delete_entry.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:DeleteItem"]
         Resource = aws_dynamodb_table.entries.arn
       }
     ]
@@ -86,7 +186,7 @@ data "archive_file" "delete_entry" {
 # ============================================================
 resource "aws_lambda_function" "create_entry" {
   function_name    = "${var.project_name}-create-entry"
-  role             = aws_iam_role.lambda_exec.arn
+  role             = aws_iam_role.create_entry.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.create_entry.output_path
@@ -105,7 +205,7 @@ resource "aws_lambda_function" "create_entry" {
 
 resource "aws_lambda_function" "list_entries" {
   function_name    = "${var.project_name}-list-entries"
-  role             = aws_iam_role.lambda_exec.arn
+  role             = aws_iam_role.list_entries.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.list_entries.output_path
@@ -124,7 +224,7 @@ resource "aws_lambda_function" "list_entries" {
 
 resource "aws_lambda_function" "update_entry" {
   function_name    = "${var.project_name}-update-entry"
-  role             = aws_iam_role.lambda_exec.arn
+  role             = aws_iam_role.update_entry.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.update_entry.output_path
@@ -143,7 +243,7 @@ resource "aws_lambda_function" "update_entry" {
 
 resource "aws_lambda_function" "delete_entry" {
   function_name    = "${var.project_name}-delete-entry"
-  role             = aws_iam_role.lambda_exec.arn
+  role             = aws_iam_role.delete_entry.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.delete_entry.output_path

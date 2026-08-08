@@ -24,13 +24,18 @@ Parameters:
 Resources:
 
   # ----------------------------------------------------------
-  # Lambda 実行ロール
-  # 4つのLambda関数が共通で使うロール（DynamoDB CRUD + CloudWatch Logs）
+  # Lambda 実行ロール（関数ごとに分離・最小権限）
+  # 以前は1つの共有ロールがDynamoDBの全CRUD権限を4関数すべてに一律付与
+  # していた。各ハンドラーが実際に呼ぶAPIは1種類のみなので、関数ごとに
+  # 専用ロール＋そのAPI1つだけを許可するポリシーに分離する。
+  # 設計判断の詳細は docs/IAM-Least-Privilege.md 参照（Terraform実装が正）
   # ----------------------------------------------------------
-  LambdaExecutionRole:
+
+  # create_entry — dynamodb:PutItem のみ（backend/lambda/create_entry/handler.py 参照）
+  CreateEntryRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-lambda-exec'
+      RoleName: !Sub '${ProjectName}-create-entry-exec'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -38,21 +43,96 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      # CloudWatch Logsへの書き込み権限（AWS管理ポリシー）
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      # DynamoDBテーブルへのCRUD権限（このテーブルのみに限定）
       Policies:
-        - PolicyName: !Sub '${ProjectName}-lambda-dynamodb'
+        - PolicyName: !Sub '${ProjectName}-create-entry-dynamodb'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
                   - dynamodb:PutItem
-                  - dynamodb:GetItem
+                Resource: !Ref TableArn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # list_entries — dynamodb:Query のみ（backend/lambda/list_entries/handler.py 参照）
+  ListEntriesRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-list-entries-exec'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub '${ProjectName}-list-entries-dynamodb'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
                   - dynamodb:Query
+                Resource: !Ref TableArn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # update_entry — dynamodb:UpdateItem のみ（backend/lambda/update_entry/handler.py 参照）
+  UpdateEntryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-update-entry-exec'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub '${ProjectName}-update-entry-dynamodb'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
                   - dynamodb:UpdateItem
+                Resource: !Ref TableArn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # delete_entry — dynamodb:DeleteItem のみ（backend/lambda/delete_entry/handler.py 参照）
+  DeleteEntryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-delete-entry-exec'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub '${ProjectName}-delete-entry-dynamodb'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
                   - dynamodb:DeleteItem
                 Resource: !Ref TableArn
       Tags:
@@ -66,7 +146,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-create-entry'
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt CreateEntryRole.Arn
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
@@ -130,7 +210,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-list-entries'
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt ListEntriesRole.Arn
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
@@ -173,7 +253,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-update-entry'
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt UpdateEntryRole.Arn
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
@@ -230,7 +310,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${ProjectName}-delete-entry'
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt DeleteEntryRole.Arn
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
