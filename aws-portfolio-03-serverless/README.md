@@ -2,7 +2,7 @@
 
 Status: ✅ Live — https://journal.daoxiao.org/
 
-Docs: [Architecture & design decisions](./docs/Architecture.md) · [Frontend design](./docs/Frontend-Design.md) · [Terraform reference](./infrastructure/terraform/README.md) · [Build-from-scratch tutorial (JP only)](./docs/Build-Tutorial/README.md)
+Docs: [Architecture & design decisions](./docs/Architecture.md) · [IAM least privilege redesign](./docs/IAM-Least-Privilege.md) · [Frontend design](./docs/Frontend-Design.md) · [Terraform reference](./infrastructure/terraform/README.md) · [Build-from-scratch tutorial (JP only)](./docs/Build-Tutorial/README.md)
 
 ## Architecture
 
@@ -166,8 +166,9 @@ working end-to-end.
 ```
 aws-portfolio-03-serverless/
 ├── docs/
-│   ├── Architecture.md        # infra design rationale, security model
-│   └── Frontend-Design.md     # React component/auth/state design rationale
+│   ├── Architecture.md          # infra design rationale, security model
+│   ├── IAM-Least-Privilege.md   # per-function IAM role redesign rationale
+│   └── Frontend-Design.md       # React component/auth/state design rationale
 ├── infrastructure/terraform/
 │   ├── README.md              # file-by-file reference, deploy/destroy, gotchas
 │   ├── providers.tf
@@ -205,7 +206,7 @@ aws-portfolio-03-serverless/
 
 ステータス: ✅ 公開中 — https://journal.daoxiao.org/
 
-ドキュメント: [アーキテクチャ・設計判断](./docs/Architecture.md) ・ [フロントエンド設計](./docs/Frontend-Design.md) ・ [Terraformリファレンス](./infrastructure/terraform/README.md) ・ [ゼロから構築するチュートリアル](./docs/Build-Tutorial/README.md)
+ドキュメント: [アーキテクチャ・設計判断](./docs/Architecture.md) ・ [IAM最小権限の再設計](./docs/IAM-Least-Privilege.md) ・ [フロントエンド設計](./docs/Frontend-Design.md) ・ [Terraformリファレンス](./infrastructure/terraform/README.md) ・ [ゼロから構築するチュートリアル](./docs/Build-Tutorial/README.md)
 
 ## アーキテクチャ
 
@@ -368,8 +369,9 @@ aws cloudfront create-invalidation --distribution-id <cloudfront_distribution_id
 ```
 aws-portfolio-03-serverless/
 ├── docs/
-│   ├── Architecture.md        # インフラ設計の理由・セキュリティモデル
-│   └── Frontend-Design.md     # Reactのコンポーネント/認証/状態設計の理由
+│   ├── Architecture.md          # インフラ設計の理由・セキュリティモデル
+│   ├── IAM-Least-Privilege.md   # 関数ごとのIAMロール再設計の理由
+│   └── Frontend-Design.md       # Reactのコンポーネント/認証/状態設計の理由
 ├── infrastructure/terraform/
 │   ├── README.md              # ファイル別リファレンス・デプロイ/削除・注意点
 │   ├── providers.tf
