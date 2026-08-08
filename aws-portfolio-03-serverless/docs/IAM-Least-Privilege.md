@@ -104,17 +104,42 @@ The plan is exactly what the redesign should produce and nothing else:
 
 No DynamoDB, API Gateway, Cognito, or frontend resources appear in the
 plan — this change is contained entirely to Lambda IAM, as intended.
-`terraform apply` has **not** been run; the plan above is what would
-happen, pending a deploy decision.
 
-## Out of scope (noted, not fixed here)
+`terraform apply` was run after this verification. All 12 additions
+succeeded and the 3 old shared-role resources were destroyed. Post-apply
+checks:
+
+```
+aws lambda get-function-configuration --function-name ...   # role ARN → *-exec per function, for all 4
+aws iam get-role-policy --role-name *-exec ...               # exactly one Action each, matching the table above
+aws iam get-role --role-name aws-portfolio-03-serverless-lambda-exec   # NoSuchEntity — old shared role is gone
+```
+
+A synthetic invoke of `list_entries` (a `Query` for a nonexistent test
+`userId`, read-only, no data mutation) returned `{"statusCode": 200,
+"body": "[]"}` — confirming the new role's single-action policy actually
+works end-to-end, not just that it exists. The live site
+(`journal.daoxiao.org`, 200) and API Gateway endpoint (`/entries`
+unauthenticated, 401 as expected from the JWT authorizer) were also
+checked and are unaffected.
+
+## Dead IAM user config removed along the way
 
 While validating this change, `terraform plan` surfaced an unrelated,
 pre-existing error: `data "aws_iam_user" "github_actions"` in `iam.tf`
-fails because the IAM user `github-actions-portfolio-01` no longer exists
-— left over from the switch to OIDC-based deploy authentication (commit
-`5c5b571`, "Authenticate deployments with OIDC instead of a stored access
-key"). That data source (and the two `aws_iam_user_policy` resources
-depending on it) look like dead configuration now that CI/CD no longer
-uses a long-lived IAM user, but cleaning that up is a separate change and
-is left for a follow-up rather than folded into this IAM redesign.
+failed because the IAM user `github-actions-portfolio-01` no longer
+exists — left over from the switch to OIDC-based deploy authentication
+(commit `5c5b571`, "Authenticate deployments with OIDC instead of a
+stored access key"). Confirmed via `aws iam get-user` (404) and by
+checking both `deploy-03-serverless.yml` and `deploy-03-frontend.yml`,
+which already authenticate via OIDC (`AWS_DEPLOY_ROLE_ARN`,
+`infrastructure/github-oidc/main.tf`) and already grant the same
+`lambda:UpdateFunctionCode` / S3 / CloudFront permissions this file was
+trying to attach to the deleted user. The two `aws_iam_user_policy`
+resources that depended on it had already been silently dropped from
+Terraform state on refresh (their parent user is gone, so AWS had
+already deleted the inline policies along with it). Since this was a
+hard blocker for `plan`/`apply`, not just dead weight, `iam.tf` and its
+now-unused `github_actions_iam_user_name` variable were removed as part
+of this change, and the stale comment in `deploy-03-serverless.yml`
+pointing at `iam.tf` was corrected to describe the actual OIDC setup.
