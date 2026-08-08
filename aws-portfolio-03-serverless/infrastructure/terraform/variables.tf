@@ -10,12 +10,6 @@ variable "project_name" {
   default     = "aws-portfolio-03-serverless"
 }
 
-variable "github_actions_iam_user_name" {
-  description = "Phase 1で作成済みのGitHub Actions用IAMユーザー名。新規作成せず既存ユーザーに権限を追加する"
-  type        = string
-  default     = "github-actions-portfolio-01"
-}
-
 variable "domain_name" {
   description = "Phase 3フロントエンドのカスタムドメイン"
   type        = string

@@ -5,8 +5,8 @@
 #   このワークフローは Lambda関数コード の更新のみを行う。
 #   Cognito / API Gateway / DynamoDB / IAM ロードなどのインフラ変更は
 #   Phase 2と同様、ローカルから `terraform apply` で手動デプロイする。
-#   理由: CI用IAMユーザー(github-actions-portfolio-01)に
-#         IAMロール作成権限までは持たせない方針のため（iam.tf参照）。
+#   理由: OIDCで引き受けるデプロイロール（infrastructure/github-oidc/main.tf）に
+#         IAMロール作成権限までは持たせない方針のため。
 # ============================================================
 
 name: Portfolio 03 - Lambda Deploy
