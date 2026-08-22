@@ -56,6 +56,10 @@ aws-portfolio/
 │   ├── buildspec.yml               # CodeBuild: docker build → ECR push → imagedefinitions.json
 │   ├── docs/                      # Architecture & design decisions
 │   └── infrastructure/terraform/  # CodeConnections, CodeBuild, CodePipeline (Source→Build→Approve→Deploy)
+├── infrastructure/github-oidc/     # Shared, portfolio-wide — not a phase
+│   └── main.tf                    # The GitHub Actions OIDC IAM role every phase's CI assumes to deploy;
+│                                   # scoped per-resource per phase (see IaC Strategy below), lives outside
+│                                   # any single phase because all 6 phases' workflows share this one role
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # triggers on Phase 01 changes only
     ├── deploy-02-custom-domain.yml # triggers on Phase 02 changes only
@@ -135,6 +139,11 @@ aws-portfolio/
 │   ├── buildspec.yml               # CodeBuild: docker build → ECR push → imagedefinitions.json
 │   ├── docs/                      # アーキテクチャ・設計判断
 │   └── infrastructure/terraform/  # CodeConnections・CodeBuild・CodePipeline（Source→Build→Approve→Deploy）
+├── infrastructure/github-oidc/     # 特定のPhaseに属さない、全Phase共通のインフラ
+│   └── main.tf                    # 各PhaseのCIがデプロイ時にassumeするGitHub Actions OIDC IAMロール。
+│                                   # Phase単位でリソース単位に権限を絞っている（下のIaC戦略参照）。
+│                                   # 6つ全Phaseのワークフローがこの1つのロールを共有するため、
+│                                   # 特定のPhaseフォルダの外に置いている
 └── .github/workflows/
     ├── deploy-01-static-site.yml   # Phase 01 の変更時のみ発火
     ├── deploy-02-custom-domain.yml # Phase 02 の変更時のみ発火
