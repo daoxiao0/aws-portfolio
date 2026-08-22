@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 06 (Enterprise DevOps) - CodeConnections to GitHub. Terraform
+  creates this in PENDING status too - a human must complete the GitHub
+  App authorization in the console either way; no IaC tool can do that
+  handshake. Reference implementation only, mirrors the Terraform-managed
+  live infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-06-devops
+
+Resources:
+  GithubConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Properties:
+      ConnectionName: !Sub "${ProjectName}-github"
+      ProviderType: GitHub
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  ConnectionArn:
+    Value: !Ref GithubConnection

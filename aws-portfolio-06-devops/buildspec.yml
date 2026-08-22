@@ -1,0 +1,41 @@
+version: 0.2
+
+# CodeBuildが aws-portfolio-06-devops/infrastructure/terraform/codebuild.tf の
+# buildspec = "aws-portfolio-06-devops/buildspec.yml" で参照する。
+# リポジトリのルートからの相対パスで動く点に注意
+# （deploy-05-containers-image.yml のGitHub Actions版と同じ処理を
+#   CodeBuildで再実装したもの。cd先はPhase 5のapp/ディレクトリ）
+
+env:
+  variables:
+    ECR_REPOSITORY: aws-portfolio-05-containers
+    CONTAINER_NAME: app
+
+phases:
+  pre_build:
+    commands:
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - echo "Logging in to ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-12)
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - cd aws-portfolio-05-containers/app
+      - docker build -t $IMAGE_URI:latest -t $IMAGE_URI:$IMAGE_TAG .
+
+  post_build:
+    commands:
+      - echo "Pushing to ECR..."
+      - docker push $IMAGE_URI:latest
+      - docker push $IMAGE_URI:$IMAGE_TAG
+      - echo "Writing imagedefinitions.json for the CodePipeline ECS deploy action..."
+      - cd ../..
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$IMAGE_URI:$IMAGE_TAG" > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json

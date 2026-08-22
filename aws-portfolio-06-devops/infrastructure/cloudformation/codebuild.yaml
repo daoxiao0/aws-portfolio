@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 06 (Enterprise DevOps) - CodeBuild project that builds the Phase 05
+  app's Docker image and pushes it to Phase 05's ECR repo. Reference
+  implementation only, mirrors the Terraform-managed live infrastructure.
+  Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-06-devops
+  Phase5ProjectName:
+    Type: String
+    Default: aws-portfolio-05-containers
+  ArtifactBucketArn:
+    Type: String
+    Description: From s3-artifacts.yaml Outputs (BucketArn)
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/codebuild/${ProjectName}"
+      RetentionInDays: 14
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-codebuild"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-codebuild"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}:*"
+              # ECR認証トークンの取得はリソースレベル権限に対応しないため
+              # （AWS仕様）、この1アクションのみResource: "*"が必須
+              - Sid: EcrAuth
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: EcrPush
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${Phase5ProjectName}"
+              - Sid: PipelineArtifactBucket
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Ref ArtifactBucketArn
+                  - !Sub "${ArtifactBucketArn}/*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  Project:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref ProjectName
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        PrivilegedMode: true # dockerを動かすのに必須
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: aws-portfolio-06-devops/buildspec.yml
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref LogGroup
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  ProjectName:
+    Value: !Ref Project
+  RoleArn:
+    Value: !GetAtt CodeBuildRole.Arn

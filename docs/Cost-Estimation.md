@@ -143,11 +143,39 @@ below are **while the stack is up**; it is $0.00 the rest of the time.
 
 ---
 
-## Phase 06 — Cost Preview (Planned)
+## Phase 06 — Enterprise DevOps (Deployed 2026-08-22)
 
-| Phase | Key Services Added | Estimated Monthly Cost |
-|-------|-------------------|----------------------|
-| 06 DevOps | CodePipeline, CodeBuild | ~$1.00–$5.00 |
+Unlike Phase 05, this phase is **left running between demos** — see
+[`aws-portfolio-06-devops/README.md`](../aws-portfolio-06-devops/README.md#teardown).
+The pipeline has no automatic trigger (manual-start only), so CodeBuild
+charges only accrue when a release is actually run.
+
+### Services Used
+
+| Service | Usage | Free Tier | Estimated Monthly Cost |
+|---------|-------|-----------|----------------------|
+| CodePipeline (V2) | 1 pipeline, manual-start only | 100 free pipeline-executions/month (new accounts, V2 pricing) | **~$0.00–$1.00** depending on how often it's run |
+| CodeBuild | ~1 build/demo, ~1 minute each, `BUILD_GENERAL1_SMALL` | 100 build-minutes/month, always free (Linux) | **~$0.00** at demo-run frequency |
+| CodeConnections | 1 GitHub connection | No charge for the connection itself | **$0.00** |
+| S3 (artifact bucket) | A few small build artifacts | 5GB/month, always free | **$0.00** |
+
+> **List-price approximation, not confirmed via the AWS Pricing API** (same
+> caveat as Phase 05's numbers — this account's CLI user isn't granted
+> `pricing:GetProducts`). CodePipeline V2 pricing is usage-based per
+> pipeline-execution rather than the old V1 flat $1/pipeline/month, so the
+> realistic cost at this phase's demo-only run frequency should round to
+> near $0 most months.
+
+### Phase 06 Total
+
+| Scenario | Monthly |
+|----------|---------|
+| Standing infrastructure, pipeline not run | **~$0.00** |
+| A few manual releases per month (realistic usage) | **~$0.00–$1.00** |
+
+> This phase is deliberately **not** torn down between demos the way
+> Phase 05 is — CodePipeline/CodeBuild/CodeConnections have no meaningful
+> idle cost, unlike Fargate/ALB/RDS running continuously.
 
 ---
 
@@ -328,11 +356,39 @@ Phase 01〜04と異なり、本Phaseは**常時稼働させない**——`terraf
 
 ---
 
-## Phase 06 — コスト概算（予定）
+## Phase 06 — エンタープライズDevOps（2026-08-22デプロイ）
 
-| Phase | 追加主要サービス | 月額概算 |
-|-------|---------------|---------|
-| 06 DevOps | CodePipeline・CodeBuild | 約$1.00〜$5.00 |
+Phase 05と異なり、本Phaseは**デモの合間も稼働させたまま**にする——
+[`aws-portfolio-06-devops/README.md`](../aws-portfolio-06-devops/README.md#削除手順)
+参照。パイプラインには自動トリガーがない（手動起動専用）ため、
+CodeBuildの課金は実際にリリースを実行した時だけ発生する。
+
+### 使用サービス
+
+| サービス | 使用量 | 無料枠 | 月額試算 |
+|---------|--------|--------|---------|
+| CodePipeline (V2) | パイプライン1本・手動起動専用 | 100 free pipeline-executions/月（新規アカウント・V2料金体系） | **約$0.00〜$1.00**（実行頻度による） |
+| CodeBuild | デモ1回につき約1ビルド・各約1分・`BUILD_GENERAL1_SMALL` | 100ビルド分/月・常時無料（Linux） | **約$0.00**（デモ頻度なら） |
+| CodeConnections | GitHub接続1本 | 接続自体に課金なし | **$0.00** |
+| S3（アーティファクトバケット） | 小さなビルド成果物少量 | 5GB/月・常時無料 | **$0.00** |
+
+> **AWS Pricing APIでは確認していない、公表リスト価格ベースの概算**
+> （Phase 05と同じ注記——このアカウントのCLIユーザーには
+> `pricing:GetProducts`権限がない）。CodePipeline V2の料金は旧V1の
+> 固定$1/パイプライン/月ではなく、pipeline-execution単位の従量課金の
+> ため、本Phaseのデモ実行頻度であればほとんどの月で実質$0に近い。
+
+### Phase 06 合計
+
+| シナリオ | 月額 |
+|----------|------|
+| 常設インフラのみ・パイプライン未実行 | **約$0.00** |
+| 月に数回の手動リリース（現実的な使用量） | **約$0.00〜$1.00** |
+
+> 本Phaseは、Phase 05とは異なり**デモの合間もdestroyしない**方針を
+> 意図的に取っている——CloudPipeline/CodeBuild/CodeConnectionsには
+> Fargate/ALB/RDSのような「起きているだけで課金される」実質的な
+> アイドルコストがないため。
 
 ---
 
