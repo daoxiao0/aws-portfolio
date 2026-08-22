@@ -46,9 +46,10 @@ second CodeBuild project running `aws ecs update-service`. The native
 action registers a new task definition revision (based on Phase 5's
 current one, image URI swapped for the one Build just pushed) and updates
 the service — this is the standard, idiomatic CodePipeline↔ECS
-integration and needs `ecs:RegisterTaskDefinition` +
-`iam:PassRole` (scoped to Phase 5's two task roles) rather than reaching
-into the CLI directly.
+integration and needs ECS permissions + a conditioned `iam:PassRole`
+rather than reaching into the CLI directly (see the IAM gotcha below —
+what's actually required here turned out to be broader than AWS's own
+documented example).
 
 ## Why there's no automatic trigger
 
@@ -90,16 +91,58 @@ specific resources they touch, not blanket `*Access` managed policies:
 
 - CodeBuild's role can push to **only** Phase 5's ECR repo (by ARN), not
   `ecr:*` account-wide.
-- CodePipeline's role can `iam:PassRole` **only** Phase 5's two task
-  roles (`-task`, `-task-execution`) — it cannot pass any other role in
-  the account, which matters because `PassRole` is exactly the permission
-  that turns "can register a task definition" into "can grant a Fargate
-  task whatever permissions that role holds."
+- `iam:PassRole` is scoped with a `Condition` (`iam:PassedToService =
+  ecs-tasks.amazonaws.com`, `Resource: "*"`) rather than to Phase 5's two
+  task role ARNs directly — see the gotcha below for why.
 - `ecs:DescribeServices` / `ecs:RegisterTaskDefinition` / etc. are left at
   `Resource: "*"` because AWS's ECS API doesn't support resource-level
   scoping for most of these actions — not a shortcut, a documented AWS
   limitation (same exception already noted for `ecr:GetAuthorizationToken`
   in Phase 5/6's CodeBuild roles).
+
+## Gotcha: the Deploy stage's pre-flight permission check doesn't match AWS's own documented policy
+
+AWS's own IAM example for the CodePipeline `ECS` deploy action lists
+exactly six actions (`ecs:DescribeServices`, `DescribeTaskDefinition`,
+`DescribeTasks`, `ListTasks`, `RegisterTaskDefinition`, `UpdateService`)
+plus a scoped `iam:PassRole`. That's what this pipeline's role started
+with. Every real execution's Deploy stage failed instantly (~1 second,
+before Source/Build/Approve's several-minutes-each pace) with
+`PermissionError: The provided role does not have sufficient permissions
+to access ECS`.
+
+Ruled out step by step, each on a real pipeline run:
+
+1. **Scoped `PassRole` (two explicit role ARNs) → broadened to
+   `Resource: "*"` + `iam:PassedToService` condition** (AWS's documented
+   pattern for this exact case). Reran — same instant failure.
+2. Verified with `aws iam simulate-principal-policy` that all six
+   documented actions evaluated as `allowed` against the role. The
+   failure persisted anyway, which rules out an actual missing permission
+   the ECS API would need at runtime — the check failing here is
+   CodePipeline's own pre-flight validation, not a real ECS `AccessDenied`.
+3. Added `ecs:DescribeClusters` alone (a plausible pre-check the
+   pipeline might run to validate the `ClusterName` parameter). Reran —
+   same failure.
+4. Added a batch of other plausible candidates in one shot
+   (`ecs:ListClusters`, `TagResource`, `UntagResource`,
+   `ListTagsForResource`, `DescribeTaskSets`, `CreateTaskSet`,
+   `DeleteTaskSet`, `UpdateServicePrimaryTaskSet`). Reran — still failed.
+5. Replaced the whole statement with `ecs:*`. Reran — **succeeded**,
+   confirmed twice across two separate pipeline executions, each verified
+   against the live ECS service (new task definition revision registered,
+   rollout `COMPLETED`, `/health` returning 200 through Phase 5's ALB).
+
+Conclusion: this isn't a missing-permission bug in the ordinary sense —
+IAM simulation shows the documented six actions as fully allowed, and
+adding fourteen more specific candidates on top of them didn't help
+either. Whatever check the CodePipeline `ECS` deploy action runs before
+starting the Deploy action appears to look for the `ecs:*` wildcard
+specifically, not equivalent effective permissions. This directly
+contradicts AWS's own published minimal-policy example for this feature.
+The role here uses `ecs:*` (`Resource: "*"`, no cross-service reach) as a
+documented, deliberate exception to this project's per-resource IAM
+policy — not an unexamined shortcut.
 
 ---
 
@@ -153,8 +196,9 @@ DeployステージはCodePipeline標準の`ECS`デプロイアクションを使
 いない。標準アクションは新しいタスク定義リビジョンを登録し（Phase 5の
 現行定義をベースに、イメージURIだけBuildが直前にpushしたものへ差し替え）、
 サービスを更新する——これがCodePipeline↔ECSの標準的で慣用的な連携方式
-であり、そのために`ecs:RegisterTaskDefinition`＋`iam:PassRole`
-（Phase 5の2つのタスクロールに限定）が必要になる（CLIを直接叩くのではなく）。
+であり、そのためにECS権限＋Conditionで絞った`iam:PassRole`が必要になる
+（CLIを直接叩くのではなく。実際に必要だった権限はAWS公式ドキュメントの
+例より広かった——詳細は後述のIAMギャップ参照）。
 
 ## なぜ自動トリガーを設定しないのか
 
@@ -194,13 +238,55 @@ CodeBuild・CodePipeline両方のサービスロールは、Phase 3のIAM最小�
 
 - CodeBuildのロールがpushできるのは**Phase 5のECRリポジトリのみ**
   （ARN指定）、アカウント全体の`ecr:*`ではない
-- CodePipelineのロールが`iam:PassRole`できるのは**Phase 5の2つの
-  タスクロール**（`-task`・`-task-execution`）のみ——アカウント内の
-  他のロールは一切渡せない。これが重要なのは、`PassRole`こそが
-  「タスク定義を登録できる」を「そのロールが持つ任意の権限をFargate
-  タスクに与えられる」に変える権限だから
+- `iam:PassRole`はPhase 5の2ロールのARN直接指定ではなく、
+  `Condition`（`iam:PassedToService = ecs-tasks.amazonaws.com`、
+  `Resource: "*"`）で絞っている——理由は下記の実機トラブルシュート参照
 - `ecs:DescribeServices`／`ecs:RegisterTaskDefinition`等は
   `Resource: "*"`のまま——ECSのAPIの多くがリソースレベルの権限指定に
   対応していないため（近道ではなく、文書化されたAWS側の制約。
   Phase 5/6のCodeBuildロールで既に注記した`ecr:GetAuthorizationToken`
   と同種の例外）
+
+## 実機で発覚したギャップ：DeployステージのIAM事前チェックはAWS公式ドキュメントの最小権限例と一致しない
+
+CodePipelineの`ECS`デプロイアクション用にAWSが公式ドキュメントで示す
+IAM例は、正確に6アクション（`ecs:DescribeServices`・
+`DescribeTaskDefinition`・`DescribeTasks`・`ListTasks`・
+`RegisterTaskDefinition`・`UpdateService`）と、絞り込んだ`iam:PassRole`
+のみ。本パイプラインのロールは最初この6アクションで構築した。しかし
+実際のパイプライン実行では、DeployステージがSource／Build／Approve（各
+数分かかる）とは対照的に、開始からわずか約1秒で毎回
+`PermissionError: The provided role does not have sufficient permissions
+to access ECS`で即失敗した。
+
+実機のパイプライン実行を使って、1つずつ切り分けた：
+
+1. **`PassRole`をPhase 5の2ロールARN直接指定 → `Resource: "*"` +
+   `iam:PassedToService`のConditionへ拡大**（AWS公式が示すこのケース用の
+   パターンそのもの）。再実行——同じ即時失敗
+2. `aws iam simulate-principal-policy`で、上記6アクション全てが
+   ロールに対して`allowed`と評価されることを確認。それでも失敗は
+   再現した——これは実行時にECS APIが要求する権限が本当に不足している
+   わけではなく、この失敗がCodePipeline自身の実行前バリデーションで
+   あることを示している（実際のECS側`AccessDenied`ではない）
+3. `ecs:DescribeClusters`のみを追加（`ClusterName`パラメータの事前検証で
+   呼ばれていそうな候補として）。再実行——同じ失敗
+4. さらに複数の候補（`ecs:ListClusters`・`TagResource`・
+   `UntagResource`・`ListTagsForResource`・`DescribeTaskSets`・
+   `CreateTaskSet`・`DeleteTaskSet`・`UpdateServicePrimaryTaskSet`）を
+   まとめて追加。再実行——それでも失敗
+5. ステートメント全体を`ecs:*`に置き換え。再実行——**成功**。別々の
+   パイプライン実行2回で確認済みで、それぞれ実際のECSサービス側でも
+   検証した（新しいタスク定義リビジョンが登録され、rolloutは
+   `COMPLETED`、Phase 5のALB経由の`/health`も200を返す）
+
+結論：これは通常の意味での「権限不足バグ」ではない——IAMシミュレーション
+では公式ドキュメントの6アクションは全て許可されていると評価され、
+さらに14個の候補アクションを追加しても解決しなかった。CodePipelineの
+`ECS`デプロイアクションがDeploy開始前に行っている何らかのチェックは、
+実効的に同等な権限セットではなく、`ecs:*`というワイルドカードの存在
+そのものを見ているように見える。これはAWS自身が公開している最小権限
+ポリシー例と直接矛盾する。本ロールでは`ecs:*`（`Resource: "*"`、他
+サービスへの越境なし）を、本プロジェクトのリソース単位IAM方針に対する
+文書化済み・意図的な例外として採用している——見落としによる近道では
+ない。

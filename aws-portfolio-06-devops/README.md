@@ -44,8 +44,13 @@ wiring both to the same trigger means two competing deploys per commit).
   oversight. Framed the same way Phase 1 frames its unused CloudFormation
   reference templates: two real implementations, one actively wired up.
 - **IAM scoped per resource**: CodeBuild can push to only Phase 5's ECR
-  repo; CodePipeline can `iam:PassRole` only Phase 5's two task roles —
-  not blanket account-wide permissions.
+  repo; CodePipeline's `iam:PassRole` is scoped by a `Condition`
+  (`iam:PassedToService = ecs-tasks.amazonaws.com`) rather than to
+  account-wide permissions. Its ECS actions are `ecs:*` — verified
+  in practice (not assumed) that AWS's own documented 6-action minimal
+  policy for this deploy action instantly fails with `PermissionError`;
+  see `docs/Architecture.md`'s IAM gotcha section for the full
+  troubleshooting trail.
 
 ## Deploy (first time)
 
@@ -190,8 +195,12 @@ GitHub Actionsワークフローが既にアプリ変更時に自動デプロイ
   Phase 1が未使用のCloudFormation参照実装に対して取っているのと同じ
   枠組み：同じ仕事の実装が2つあり、片方だけが実際に配線されている
 - **IAMはリソース単位で絞る**：CodeBuildがpushできるのはPhase 5の
-  ECRリポジトリのみ、CodePipelineが`iam:PassRole`できるのはPhase 5の
-  2つのタスクロールのみ——アカウント全体への包括的な権限ではない
+  ECRリポジトリのみ、CodePipelineの`iam:PassRole`はConditionで絞る
+  （`iam:PassedToService = ecs-tasks.amazonaws.com`）——アカウント全体への
+  包括的な権限ではない。ただしECSアクションは`ecs:*`——AWS公式ドキュメント
+  が示す6アクションの最小権限ポリシーでは実機で毎回即時に
+  `PermissionError`となることを検証済み（推測ではない）。詳細な切り分けは
+  `docs/Architecture.md`のIAMギャップ節を参照
 
 ## デプロイ手順（初回）
 

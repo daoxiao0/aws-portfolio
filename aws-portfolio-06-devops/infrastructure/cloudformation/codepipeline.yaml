@@ -81,21 +81,36 @@ Resources:
                 Resource: !Ref CodeBuildProjectArn
               - Sid: EcsDeploy
                 Effect: Allow
-                Action:
-                  - ecs:DescribeServices
-                  - ecs:DescribeTaskDefinition
-                  - ecs:DescribeTasks
-                  - ecs:ListTasks
-                  - ecs:RegisterTaskDefinition
-                  - ecs:UpdateService
-                # describe/register系の多くはリソースレベル権限に非対応（AWS仕様）
+                # 実機検証の結果、AWS公式ドキュメントが示す6アクション（Describe
+                # Services/DescribeTaskDefinition/DescribeTasks/ListTasks/
+                # RegisterTaskDefinition/UpdateService）だけではDeployステージが
+                # 毎回 "PermissionError: The provided role does not have
+                # sufficient permissions to access ECS" で即失敗した。
+                # iam:simulate-principal-policyでこの6アクション全てが
+                # "allowed"と評価される状態でも失敗が再現したため、IAM上の
+                # 実効権限の問題ではなく、CodePipelineのECSデプロイアクションが
+                # 実行前に行う権限チェック自体がecs:*ワイルドカードの存在を
+                # 要求している（個別列挙では通らない）と判断。DescribeClusters
+                # 単体追加、さらにTagResource/UntagResource等を束ねて追加しても
+                # 解決せず、ecs:*のみが機能したことで確認済み（2026-08-22実機
+                # テスト）。本来の最小権限原則からは外れるが、この一点は
+                # CodePipeline側の仕様/挙動によるものとして受け入れる
+                Action: "ecs:*"
                 Resource: "*"
-              - Sid: PassPhase5TaskRoles
+              - Sid: PassEcsTaskRoles
                 Effect: Allow
+                # RegisterTaskDefinitionで新しいリビジョンに引き継がせるロールを
+                # 「渡す」ための権限。当初はPhase 5の2ロールのARNで厳密に絞って
+                # いたが、CodePipelineのECSデプロイアクションが起動前に行う権限
+                # チェックがARN限定のPassRoleを正しく認識せず失敗したため、AWS
+                # 公式ドキュメントのECSデプロイアクション用ポリシー例に合わせ、
+                # Resource="*"+iam:PassedToServiceのCondition（ecs-tasks.amazonaws.com
+                # へのPassRoleのみ許可）に変更——実質的な絞り込みはConditionが担う
                 Action: iam:PassRole
-                Resource:
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${Phase5ProjectName}-task"
-                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${Phase5ProjectName}-task-execution"
+                Resource: "*"
+                Condition:
+                  StringEqualsIfExists:
+                    "iam:PassedToService": ecs-tasks.amazonaws.com
       Tags:
         - Key: Project
           Value: !Ref ProjectName

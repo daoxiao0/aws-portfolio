@@ -66,30 +66,46 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = aws_codebuild_project.app.arn
       },
       {
-        # 素のECSデプロイアクションが必要とする権限一式
-        # （新しいタスク定義リビジョンの登録＋サービス更新）
-        Sid    = "EcsDeploy"
-        Effect = "Allow"
-        Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:DescribeTasks",
-          "ecs:ListTasks",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService",
-        ]
-        Resource = "*" # ECSのdescribe/register系はリソースレベル権限に対応しないアクションが多い（AWS仕様）
+        # 実機検証の結果、AWS公式ドキュメントが示す6アクション
+        # （DescribeServices/DescribeTaskDefinition/DescribeTasks/
+        # ListTasks/RegisterTaskDefinition/UpdateService）だけでは
+        # Deployステージが毎回 "PermissionError: The provided role does
+        # not have sufficient permissions to access ECS" で即失敗した。
+        # iam:simulate-principal-policyでこの6アクション全てが
+        # "allowed"と評価される状態でも失敗が再現したため、IAM上の
+        # 実効権限の問題ではなく、CodePipelineのECSデプロイアクションが
+        # 実行前に行う権限チェック自体がecs:*ワイルドカードの存在を
+        # 要求している（個別列挙では通らない）と判断。ecs:DescribeClusters
+        # 追加、さらにTagResource/UntagResource/ListTagsForResource/
+        # DescribeTaskSets/CreateTaskSet/DeleteTaskSet/
+        # UpdateServicePrimaryTaskSet等を束ねて追加しても解決せず、
+        # ecs:*のみが機能したことで確認済み（2026-08-22実機テスト）。
+        # 本来の最小権限原則からは外れるが、この一点はCodePipeline側の
+        # 仕様/挙動によるものとして受け入れる
+        Sid      = "EcsDeploy"
+        Effect   = "Allow"
+        Action   = "ecs:*"
+        Resource = "*"
       },
       {
         # RegisterTaskDefinitionで新しいリビジョンに引き継がせるロールを
-        # 「渡す」ための権限。Phase 5の2つのロールに限定する
-        Sid    = "PassPhase5TaskRoles"
-        Effect = "Allow"
-        Action = "iam:PassRole"
-        Resource = [
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.phase5_project_name}-task",
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.phase5_project_name}-task-execution",
-        ]
+        # 「渡す」ための権限。当初はPhase 5の2ロールのARNで厳密に絞って
+        # いたが、CodePipelineのECSデプロイアクションが起動前に行う
+        # 権限チェック（PermissionError: "provided role does not have
+        # sufficient permissions to access ECS"）がARN限定のPassRoleを
+        # 正しく認識せず失敗した（実機で確認）。AWS公式ドキュメントの
+        # ECSデプロイアクション用ポリシー例に合わせ、Resource="*"+
+        # iam:PassedToServiceのCondition（ecs-tasks.amazonaws.comへの
+        # PassRoleのみ許可）に変更——実質的な絞り込みはConditionが担う
+        Sid      = "PassEcsTaskRoles"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = "*"
+        Condition = {
+          StringEqualsIfExists = {
+            "iam:PassedToService" = ["ecs-tasks.amazonaws.com"]
+          }
+        }
       },
     ]
   })
