@@ -135,6 +135,34 @@ resource "aws_iam_role_policy" "deploy" {
           "arn:aws:lambda:ap-northeast-1:536697227701:function:aws-portfolio-03-serverless-delete-entry",
         ]
       },
+      {
+        # ECR認証トークンの取得はリソースレベル権限に対応しないため
+        # （AWS仕様）、この1アクションのみ Resource: "*" が必須
+        Sid      = "Phase05EcrAuth"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Sid    = "Phase05EcrPush"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+        ]
+        Resource = "arn:aws:ecr:ap-northeast-1:536697227701:repository/aws-portfolio-05-containers"
+      },
+      {
+        # イメージpush後、ECSに新しいイメージを引かせるための強制再デプロイ
+        # （サービス自体は既にTerraform apply済みの想定。ここでは作成・削除しない）
+        Sid      = "Phase05EcsForceDeploy"
+        Effect   = "Allow"
+        Action   = ["ecs:UpdateService", "ecs:DescribeServices"]
+        Resource = "arn:aws:ecs:ap-northeast-1:536697227701:service/aws-portfolio-05-containers/*"
+      },
     ]
   })
 }

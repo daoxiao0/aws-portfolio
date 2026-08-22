@@ -1,0 +1,87 @@
+# ============================================================
+# Portfolio 05 - Dockerイメージビルド & ECR push
+# ============================================================
+# スコープ:
+#   このワークフローはDockerイメージのビルド・ECR pushとECSの強制再デプロイ
+#   のみを行う。ECS/ALB/RDS/セキュリティグループ等のインフラ変更は、
+#   Phase 3と同様、ローカルから`terraform apply`で手動デプロイする。
+#   理由: OIDCで引き受けるデプロイロール（infrastructure/github-oidc/main.tf）に
+#         ECS/RDS/ALBの作成権限までは持たせない方針のため（ECRのpushと
+#         このPhase専用サービスへのforce-new-deploymentのみ許可）。
+#   開発環境にローカルDockerが無いため、初回イメージ作成もこのワークフローの
+#   workflow_dispatch実行に頼っている（2026-08-22）。
+# ============================================================
+
+name: Portfolio 05 - Image Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-05-containers/app/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-05-containers/app/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: aws-portfolio-05-containers/app
+
+env:
+  ECR_REPOSITORY: aws-portfolio-05-containers
+  ECS_CLUSTER: aws-portfolio-05-containers
+  ECS_SERVICE: aws-portfolio-05-containers
+
+jobs:
+  build-and-push:
+    name: Build image, push to ECR, force ECS redeploy
+    runs-on: ubuntu-latest
+
+    # OIDCトークンの発行に必要
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image (verify Dockerfile, PRs don't push)
+        run: docker build -t "$ECR_REPOSITORY:ci" .
+
+      # OIDC認証。ロール定義は infrastructure/github-oidc/main.tf
+      - name: Configure AWS credentials
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Login to ECR
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY"
+          docker build -t "$IMAGE:latest" -t "$IMAGE:${{ github.sha }}" .
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+
+      # ECSサービスが既にterraform apply済みの場合のみ意味を持つ。
+      # 初回イメージpush時点ではまだサービスが存在しないため失敗して当然
+      # （continue-on-errorで無視。運用中の再pushでは実際に効く）
+      - name: Force new ECS deployment (no-op if the service doesn't exist yet)
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --force-new-deployment
