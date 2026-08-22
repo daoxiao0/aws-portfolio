@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 04 (Observability) - SNS alert topic. Reference implementation only,
+  mirrors the Terraform-managed live infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-04-observability
+  AlertEmail:
+    Type: String
+    Default: daoxiao01230@gmail.com
+    Description: >
+      Subscription is created in SNS:PendingConfirmation state; the recipient
+      must click the confirmation link AWS emails before notifications flow.
+
+Resources:
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-alerts"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  AlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+Outputs:
+  TopicArn:
+    Description: SNS topic ARN referenced by alarms.yaml
+    Value: !Ref AlertsTopic

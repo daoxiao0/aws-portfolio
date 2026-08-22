@@ -1,0 +1,63 @@
+name: Portfolio 04 - CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-04-observability/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-04-observability/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: aws-portfolio-04-observability
+
+# Phase 04 はインフラのみ（アプリコードなし）
+# CloudWatch Alarm/Dashboard/SNSの実デプロイはローカルからterraform applyで行う
+# （OIDCデプロイロールには意図的にCloudWatch/SNS/X-Ray/IAM権限を持たせていない）
+# このワークフローはCloudFormation参照テンプレートの構文検証のみ行う
+jobs:
+  validate:
+    name: Validate CloudFormation Templates
+    runs-on: ubuntu-latest
+
+    # OIDCトークンの発行に必要
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # OIDC認証。ロール定義は infrastructure/github-oidc/main.tf
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Validate sns.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/sns.yaml
+
+      - name: Validate alarms.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/alarms.yaml
+
+      - name: Validate dashboard.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/dashboard.yaml
+
+      # cloudfront-alarms.yaml はus-east-1のリソースを定義するが、
+      # validate-template自体はテンプレートの構文チェックのみでリージョン非依存
+      - name: Validate cloudfront-alarms.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/cloudfront-alarms.yaml

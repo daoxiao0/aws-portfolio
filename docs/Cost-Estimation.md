@@ -77,11 +77,33 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 04–06 — Cost Preview (Planned)
+## Phase 04 — Observability (Deployed 2026-08-22)
+
+### Additional Services
+
+| Service | Usage (actual, this account) | Free Tier | Estimated Monthly Cost |
+|---------|-------|-----------|----------------------|
+| CloudWatch Alarms | 8 new (4 Lambda + 1 API GW + 1 DynamoDB, ap-northeast-1; 2 CloudFront, us-east-1) | 10 alarms/account, always free | **See note below — not $0.00** |
+| CloudWatch Dashboard | 1 (10 widgets) | 3 dashboards/account, always free | **$0.00** |
+| CloudWatch Logs retention | 4 Lambda log groups set to 14 days (was unlimited) | N/A — reduces storage over time | **$0.00** (net cost decrease) |
+| X-Ray traces | ~400 invocations/month → ~400 traces/month (Lambda-level only, no DynamoDB sub-segments) | 100,000 traces recorded/month, always free | **$0.00** |
+| SNS (2 topics, email only) | <10 notifications/month at this traffic level | 1,000 email notifications/month, always free | **$0.00** |
+
+> **Alarms are the one line item that isn't free**, and the reason is specific to this AWS account, not this phase in isolation: `describe-alarms` showed **9 pre-existing alarms** (from the unrelated `aws-knowledge-collector` / `aws-serverless-social-publisher` projects sharing this account) *before* Phase 04 was applied. Adding this phase's 8 brings the account to **17 alarms total against a 10-alarm free tier**, so up to 7 are billable at $0.10/alarm/month (~**$0.70/month**) if CloudWatch's free tier is account-wide; if it's actually tracked per-Region (`ap-northeast-1`: 9 pre-existing + 6 new = 15 → 5 billable = $0.50/month; `us-east-1`: 2 new, both free = $0.00), the total is **~$0.50/month** instead. I could not confirm which scoping AWS applies without waiting for an actual bill — either way this is the account's cumulative alarm count crossing the free threshold, not something unique to Phase 04's own alarms.
+
+### Phase 04 Total (incremental)
+
+| Scenario | Monthly | Annual |
+|----------|---------|--------|
+| This account, current usage | **~$0.50–$0.70** | **~$6–$8.40** |
+| If this were a fresh AWS account (no other projects' alarms) | **$0.00** | **$0.00** |
+
+---
+
+## Phase 05–06 — Cost Preview (Planned)
 
 | Phase | Key Services Added | Estimated Monthly Cost |
 |-------|-------------------|----------------------|
-| 04 Observability | CloudWatch Logs, X-Ray, SNS | ~$0.00–$1.00 |
 | 05 Containers | ECS Fargate, ALB, RDS | ~$30–$80 |
 | 06 DevOps | CodePipeline, CodeBuild | ~$1.00–$5.00 |
 
@@ -199,11 +221,33 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 04–06 — コスト概算（予定）
+## Phase 04 — オブザーバビリティ（2026-08-22デプロイ）
+
+### 追加サービス
+
+| サービス | 使用量（このアカウントでの実測） | 無料枠 | 月額試算 |
+|---------|--------|--------|---------|
+| CloudWatch Alarm | 新規8個（Lambda4＋API GW1＋DynamoDB1はap-northeast-1、CloudFront2はus-east-1） | 10個/アカウント・常時無料 | **下記注記参照——$0.00ではない** |
+| CloudWatch Dashboard | 1枚（widget10個） | 3枚/アカウント・常時無料 | **$0.00** |
+| CloudWatch Logs保持期間 | Lambdaロググループ4個を14日に設定（従来は無期限） | 該当なし——むしろストレージは減少 | **$0.00**（実質コスト減） |
+| X-Rayトレース | 約400回呼び出し/月 → 約400トレース/月（Lambda側のみ、DynamoDBサブセグメントなし） | 100,000トレース記録/月・常時無料 | **$0.00** |
+| SNS（トピック2つ・メールのみ） | この規模では10通未満/月 | 1,000メール通知/月・常時無料 | **$0.00** |
+
+> **唯一無料でないのがAlarm** で、理由は本Phase単体の問題ではなくこのAWSアカウント固有の事情による：Phase 4適用前の時点で`describe-alarms`を確認したところ、**既存9個のAlarm**が存在していた（このアカウントを共有する無関係な`aws-knowledge-collector`・`aws-serverless-social-publisher`プロジェクト由来）。本Phaseの8個を加えると**アカウント合計17個**となり、10個の無料枠を超える。CloudWatchの無料枠が**アカウント全体で共通**なら超過分7個×$0.10＝**約$0.70/月**、**リージョンごとに個別**なら（`ap-northeast-1`：既存9＋新規6＝15個→超過5個＝$0.50/月、`us-east-1`：新規2個はどちらも無料枠内＝$0.00）合計**約$0.50/月**となる。どちらの区分が実際に適用されるかは実際の請求書が来るまで確認できなかった。いずれにせよ、これは本Phase固有のAlarmの問題ではなく、アカウント全体の累計Alarm数が無料枠を超えたことによるもの。
+
+### Phase 04 追加コスト
+
+| シナリオ | 月額 | 年額 |
+|---------|------|------|
+| このアカウントでの現状 | **約$0.50〜$0.70** | **約$6〜$8.40** |
+| 他プロジェクトのAlarmが無い、まっさらなアカウントだった場合 | **$0.00** | **$0.00** |
+
+---
+
+## Phase 05–06 — コスト概算（予定）
 
 | Phase | 追加主要サービス | 月額概算 |
 |-------|---------------|---------|
-| 04 オブザーバビリティ | CloudWatch Logs・X-Ray・SNS | 約$0.00〜$1.00 |
 | 05 コンテナ | ECS Fargate・ALB・RDS | 約$30〜$80 |
 | 06 DevOps | CodePipeline・CodeBuild | 約$1.00〜$5.00 |
 

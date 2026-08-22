@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 04 (Observability) - CloudFront 5xxErrorRate alarms for Phase 1 and
+  Phase 3's distributions. Must be deployed to us-east-1: CloudFront
+  publishes CloudWatch metrics only there, and a CloudWatch alarm's SNS
+  action must live in the same Region as the alarm — so this template also
+  owns its own (us-east-1) SNS topic rather than reusing sns.yaml's
+  ap-northeast-1 topic. Reference implementation only, mirrors the
+  Terraform-managed live infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-04-observability
+  AlertEmail:
+    Type: String
+    Default: daoxiao01230@gmail.com
+  Phase1DistributionId:
+    Type: String
+    Default: E2A0IOWER5T8MD
+  Phase3DistributionId:
+    Type: String
+    Default: E3DWEBAN856KUZ
+
+Resources:
+  AlertsTopicUsEast1:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${ProjectName}-alerts-us-east-1"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  AlertsSubscriptionUsEast1:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertsTopicUsEast1
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  CloudFrontPhase1FiveXxRate:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-cloudfront-phase1-5xx-rate"
+      AlarmDescription: Phase 1 CloudFront 5xx error rate exceeded 5%
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref Phase1DistributionId
+        - Name: Region
+          Value: Global
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicUsEast1]
+      OKActions: [!Ref AlertsTopicUsEast1]
+
+  CloudFrontPhase3FiveXxRate:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-cloudfront-phase3-5xx-rate"
+      AlarmDescription: Phase 3 frontend CloudFront 5xx error rate exceeded 5%
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref Phase3DistributionId
+        - Name: Region
+          Value: Global
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicUsEast1]
+      OKActions: [!Ref AlertsTopicUsEast1]
+
+Outputs:
+  TopicArn:
+    Value: !Ref AlertsTopicUsEast1

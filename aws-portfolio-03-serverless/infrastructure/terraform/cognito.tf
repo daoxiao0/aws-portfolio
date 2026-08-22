@@ -13,10 +13,10 @@ resource "aws_cognito_user_pool" "main" {
 
   password_policy {
     minimum_length    = 8
-    require_lowercase  = true
-    require_uppercase  = true
-    require_numbers    = true
-    require_symbols    = false
+    require_lowercase = true
+    require_uppercase = true
+    require_numbers   = true
+    require_symbols   = false
     # 理由: 学習用ポートフォリオのため、記号必須までは要求しない
   }
 

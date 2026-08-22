@@ -37,6 +37,13 @@ resource "aws_iam_role_policy_attachment" "create_entry_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Phase 4 (Observability): X-Ray への書き込み権限。トレーシング自体は
+# aws_lambda_function.create_entry の tracing_config で有効化する
+resource "aws_iam_role_policy_attachment" "create_entry_xray" {
+  role       = aws_iam_role.create_entry.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 resource "aws_iam_role_policy" "create_entry_dynamodb" {
   name = "${var.project_name}-create-entry-dynamodb"
   role = aws_iam_role.create_entry.id
@@ -68,6 +75,11 @@ resource "aws_iam_role" "list_entries" {
 resource "aws_iam_role_policy_attachment" "list_entries_logs" {
   role       = aws_iam_role.list_entries.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "list_entries_xray" {
+  role       = aws_iam_role.list_entries.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 resource "aws_iam_role_policy" "list_entries_dynamodb" {
@@ -103,6 +115,11 @@ resource "aws_iam_role_policy_attachment" "update_entry_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "update_entry_xray" {
+  role       = aws_iam_role.update_entry.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 resource "aws_iam_role_policy" "update_entry_dynamodb" {
   name = "${var.project_name}-update-entry-dynamodb"
   role = aws_iam_role.update_entry.id
@@ -134,6 +151,11 @@ resource "aws_iam_role" "delete_entry" {
 resource "aws_iam_role_policy_attachment" "delete_entry_logs" {
   role       = aws_iam_role.delete_entry.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "delete_entry_xray" {
+  role       = aws_iam_role.delete_entry.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 resource "aws_iam_role_policy" "delete_entry_dynamodb" {
@@ -192,6 +214,13 @@ resource "aws_lambda_function" "create_entry" {
   filename         = data.archive_file.create_entry.output_path
   source_code_hash = data.archive_file.create_entry.output_base64sha256
 
+  # Phase 4 (Observability): Lambdaサービスが自動でセグメントを生成する
+  # （コード側のaws-xray-sdk計装は行わない。DynamoDBサブセグメントは出ないが
+  # 呼び出しごとの実トレース＝関数名・所要時間・コールドスタートは記録される）
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       TABLE_NAME = aws_dynamodb_table.entries.name
@@ -210,6 +239,10 @@ resource "aws_lambda_function" "list_entries" {
   runtime          = "python3.12"
   filename         = data.archive_file.list_entries.output_path
   source_code_hash = data.archive_file.list_entries.output_base64sha256
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {
@@ -230,6 +263,10 @@ resource "aws_lambda_function" "update_entry" {
   filename         = data.archive_file.update_entry.output_path
   source_code_hash = data.archive_file.update_entry.output_base64sha256
 
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       TABLE_NAME = aws_dynamodb_table.entries.name
@@ -248,6 +285,10 @@ resource "aws_lambda_function" "delete_entry" {
   runtime          = "python3.12"
   filename         = data.archive_file.delete_entry.output_path
   source_code_hash = data.archive_file.delete_entry.output_base64sha256
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {

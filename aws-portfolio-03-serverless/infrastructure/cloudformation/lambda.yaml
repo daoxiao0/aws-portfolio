@@ -45,6 +45,8 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        # Phase 4 (Observability): X-Rayへの書き込み権限
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
         - PolicyName: !Sub '${ProjectName}-create-entry-dynamodb'
           PolicyDocument:
@@ -72,6 +74,8 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        # Phase 4 (Observability): X-Rayへの書き込み権限
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
         - PolicyName: !Sub '${ProjectName}-list-entries-dynamodb'
           PolicyDocument:
@@ -99,6 +103,8 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        # Phase 4 (Observability): X-Rayへの書き込み権限
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
         - PolicyName: !Sub '${ProjectName}-update-entry-dynamodb'
           PolicyDocument:
@@ -126,6 +132,8 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        # Phase 4 (Observability): X-Rayへの書き込み権限
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
         - PolicyName: !Sub '${ProjectName}-delete-entry-dynamodb'
           PolicyDocument:
@@ -150,6 +158,8 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
+      TracingConfig:
+        Mode: Active
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
@@ -214,6 +224,8 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
+      TracingConfig:
+        Mode: Active
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
@@ -257,6 +269,8 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
+      TracingConfig:
+        Mode: Active
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
@@ -314,6 +328,8 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.12
       Timeout: 3
+      TracingConfig:
+        Mode: Active
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName

@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 04 (Observability) - CloudWatch dashboard aggregating Phase 3's
+  Lambda / API Gateway / DynamoDB (ap-northeast-1) and CloudFront
+  (us-east-1) metrics on one screen. A dashboard resource itself is global;
+  each widget's own "region" property selects where its metrics come from.
+  Reference implementation only, mirrors the Terraform-managed live
+  infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-04-observability
+  Region:
+    Type: String
+    Default: ap-northeast-1
+  CreateEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-create-entry
+  ListEntriesFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-list-entries
+  UpdateEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-update-entry
+  DeleteEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-delete-entry
+  ApiGatewayId:
+    Type: String
+    Default: 06q0wokhfg
+  DynamoDbTableName:
+    Type: String
+    Default: aws-portfolio-03-serverless-entries
+  Phase1DistributionId:
+    Type: String
+    Default: E2A0IOWER5T8MD
+  Phase3DistributionId:
+    Type: String
+    Default: E3DWEBAN856KUZ
+
+Resources:
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${ProjectName}-dashboard"
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            { "type": "text", "x": 0, "y": 0, "width": 24, "height": 1,
+              "properties": { "markdown": "# Phase 3 - Serverless Gratitude Journal Observability" } },
+            { "type": "metric", "x": 0, "y": 1, "width": 8, "height": 6,
+              "properties": { "title": "Lambda Invocations", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${CreateEntryFunctionName}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${ListEntriesFunctionName}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${UpdateEntryFunctionName}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${DeleteEntryFunctionName}"]
+                ] } },
+            { "type": "metric", "x": 8, "y": 1, "width": 8, "height": 6,
+              "properties": { "title": "Lambda Errors", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "${CreateEntryFunctionName}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${ListEntriesFunctionName}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${UpdateEntryFunctionName}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${DeleteEntryFunctionName}"]
+                ] } },
+            { "type": "metric", "x": 16, "y": 1, "width": 8, "height": 6,
+              "properties": { "title": "Lambda Duration (avg, ms)", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${CreateEntryFunctionName}", { "stat": "Average" }],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${ListEntriesFunctionName}", { "stat": "Average" }],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${UpdateEntryFunctionName}", { "stat": "Average" }],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${DeleteEntryFunctionName}", { "stat": "Average" }]
+                ] } },
+            { "type": "metric", "x": 0, "y": 7, "width": 12, "height": 6,
+              "properties": { "title": "API Gateway - Count / 4xx / 5xx", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiId", "${ApiGatewayId}"],
+                  ["AWS/ApiGateway", "4xx", "ApiId", "${ApiGatewayId}"],
+                  ["AWS/ApiGateway", "5xx", "ApiId", "${ApiGatewayId}"]
+                ] } },
+            { "type": "metric", "x": 12, "y": 7, "width": 12, "height": 6,
+              "properties": { "title": "API Gateway Latency (avg, ms)", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/ApiGateway", "Latency", "ApiId", "${ApiGatewayId}", { "stat": "Average" }]
+                ] } },
+            { "type": "metric", "x": 0, "y": 13, "width": 12, "height": 6,
+              "properties": { "title": "DynamoDB - Consumed Capacity", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DynamoDbTableName}"],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${DynamoDbTableName}"]
+                ] } },
+            { "type": "metric", "x": 12, "y": 13, "width": 12, "height": 6,
+              "properties": { "title": "DynamoDB - Throttled Requests", "region": "${Region}", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/DynamoDB", "ThrottledRequests", "TableName", "${DynamoDbTableName}"]
+                ] } },
+            { "type": "metric", "x": 0, "y": 19, "width": 12, "height": 6,
+              "properties": { "title": "CloudFront - Requests (Phase 1 / Phase 3)", "region": "us-east-1", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/CloudFront", "Requests", "DistributionId", "${Phase1DistributionId}", "Region", "Global", { "label": "Phase 1" }],
+                  ["AWS/CloudFront", "Requests", "DistributionId", "${Phase3DistributionId}", "Region", "Global", { "label": "Phase 3" }]
+                ] } },
+            { "type": "metric", "x": 12, "y": 19, "width": 12, "height": 6,
+              "properties": { "title": "CloudFront - 5xx Error Rate (%)", "region": "us-east-1", "view": "timeSeries",
+                "metrics": [
+                  ["AWS/CloudFront", "5xxErrorRate", "DistributionId", "${Phase1DistributionId}", "Region", "Global", { "label": "Phase 1", "stat": "Average" }],
+                  ["AWS/CloudFront", "5xxErrorRate", "DistributionId", "${Phase3DistributionId}", "Region", "Global", { "label": "Phase 3", "stat": "Average" }]
+                ] } }
+          ]
+        }

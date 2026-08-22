@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 04 (Observability) - CloudWatch alarms for Phase 3's Lambda / API
+  Gateway / DynamoDB (ap-northeast-1). CloudFront alarms live in a separate
+  template (cloudfront-alarms.yaml) because CloudFront metrics only exist in
+  us-east-1. Reference implementation only, mirrors the Terraform-managed
+  live infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-04-observability
+  AlertsTopicArn:
+    Type: String
+    Description: Output of sns.yaml
+  CreateEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-create-entry
+  ListEntriesFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-list-entries
+  UpdateEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-update-entry
+  DeleteEntryFunctionName:
+    Type: String
+    Default: aws-portfolio-03-serverless-delete-entry
+  ApiGatewayId:
+    Type: String
+    Default: 06q0wokhfg
+  DynamoDbTableName:
+    Type: String
+    Default: aws-portfolio-03-serverless-entries
+
+Resources:
+  CreateEntryErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${CreateEntryFunctionName}-errors"
+      AlarmDescription: !Sub "${CreateEntryFunctionName} returned 1+ errors in 5 minutes"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CreateEntryFunctionName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
+
+  ListEntriesErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${ListEntriesFunctionName}-errors"
+      AlarmDescription: !Sub "${ListEntriesFunctionName} returned 1+ errors in 5 minutes"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ListEntriesFunctionName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
+
+  UpdateEntryErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${UpdateEntryFunctionName}-errors"
+      AlarmDescription: !Sub "${UpdateEntryFunctionName} returned 1+ errors in 5 minutes"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UpdateEntryFunctionName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
+
+  DeleteEntryErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-${DeleteEntryFunctionName}-errors"
+      AlarmDescription: !Sub "${DeleteEntryFunctionName} returned 1+ errors in 5 minutes"
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DeleteEntryFunctionName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
+
+  ApiGateway5xx:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-api-gateway-5xx"
+      AlarmDescription: Phase 3 HTTP API returned 1+ 5xx in 5 minutes
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref ApiGatewayId
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
+
+  DynamoDbThrottles:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "${ProjectName}-dynamodb-throttles"
+      AlarmDescription: Phase 3 DynamoDB table was throttled 1+ times in 5 minutes
+      Namespace: AWS/DynamoDB
+      MetricName: ThrottledRequests
+      Dimensions:
+        - Name: TableName
+          Value: !Ref DynamoDbTableName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopicArn]
+      OKActions: [!Ref AlertsTopicArn]
