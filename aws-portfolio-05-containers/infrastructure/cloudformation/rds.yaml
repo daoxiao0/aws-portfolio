@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 05 (Containers) - RDS PostgreSQL. DeletionPolicy/UpdateReplacePolicy
+  are set to Delete (not Snapshot/Retain) and the instance itself skips the
+  final snapshot, matching the Terraform config's skip_final_snapshot=true
+  and deletion_protection=false - the whole point being that tearing this
+  phase down (`aws cloudformation delete-stack` here, `terraform destroy` in
+  the real deployment) completes in one step with nothing left over.
+  Reference implementation only, mirrors the Terraform-managed live
+  infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-05-containers
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Default VPC's public subnets
+  RdsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: From network.yaml Outputs
+  DbName:
+    Type: String
+    Default: portfolio05
+  DbUsername:
+    Type: String
+    Default: portfolio05admin
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 12
+
+Resources:
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Ref ProjectName
+      DBSubnetGroupDescription: !Sub "${ProjectName} subnet group"
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  DbInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Ref ProjectName
+      Engine: postgres
+      # cfn-lintがバンドルするRDSバージョン一覧に16.15がまだ載っていない
+      # （実際のAWS APIには存在し、Terraform版はそちらを使用中）ため、
+      # この参照実装だけ16.14を使う。機能差はないパッチバージョンの違いのみ
+      EngineVersion: "16.14"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: "20"
+      MaxAllocatedStorage: 20
+      StorageType: gp3
+      DBName: !Ref DbName
+      MasterUsername: !Ref DbUsername
+      MasterUserPassword: !Ref DbPassword
+      Port: 5432
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroupId
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  Endpoint:
+    Value: !GetAtt DbInstance.Endpoint.Address
+  Port:
+    Value: !GetAtt DbInstance.Endpoint.Port

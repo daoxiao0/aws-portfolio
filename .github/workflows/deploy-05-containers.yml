@@ -1,0 +1,65 @@
+name: Portfolio 05 - CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-05-containers/infrastructure/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws-portfolio-05-containers/infrastructure/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: aws-portfolio-05-containers
+
+# Phase 05のECS/ALB/RDS/セキュリティグループは、OIDCデプロイロールに
+# 意図的にECS/RDS/ALB/VPC権限を持たせていないため、実デプロイはローカルから
+# terraform applyで行う（イメージのbuild/pushのみ deploy-05-containers-image.yml
+# がOIDC経由で担当）。このワークフローはCloudFormation参照テンプレートの
+# 構文検証のみ行う
+jobs:
+  validate:
+    name: Validate CloudFormation Templates
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Validate network.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/network.yaml
+
+      - name: Validate ecr.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/ecr.yaml
+
+      - name: Validate rds.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/rds.yaml
+
+      - name: Validate alb.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/alb.yaml
+
+      - name: Validate ecs.yaml
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infrastructure/cloudformation/ecs.yaml

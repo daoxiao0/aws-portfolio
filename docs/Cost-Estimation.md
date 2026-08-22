@@ -100,14 +100,54 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 05–06 — Cost Preview (Planned)
+## Phase 05 — Containers (Deployed 2026-08-22, destroy-between-demos by design)
+
+Unlike Phases 01–04, this phase is **not left running continuously** — see
+[`aws-portfolio-05-containers/README.md`](../aws-portfolio-05-containers/README.md#teardown-given-equal-weight-to-deploy--this-is-the-point-of-the-phase)
+and `docs/Architecture.md` for why `terraform destroy` was designed and
+tested to complete in one command with zero manual cleanup. The numbers
+below are **while the stack is up**; it is $0.00 the rest of the time.
+
+### Services Used (while running)
+
+| Service | Usage | Free Tier | Estimated cost while running |
+|---------|-------|-----------|----------------------|
+| ECS Fargate | 1 task, 0.25 vCPU / 0.5 GB, ap-northeast-1 | None for Fargate compute | **~$0.017/hour** (~$12–13/month if left up all month) |
+| Application Load Balancer | 1 ALB, fixed hourly charge + LCU (negligible at demo traffic) | 750 hrs/month for 12 months (new accounts only) | **~$0.025/hour** (~$18/month if left up all month) |
+| RDS db.t4g.micro | Single-AZ, 20GB gp3, no Multi-AZ | 750 hrs/month + 20GB for 12 months (new accounts only) | **~$0.02/hour compute** + **~$2.40/month storage** (~$14–17/month if left up all month) |
+| ECR storage | 1 image, ~63MB | 500MB/month, always free | **$0.00** |
+| Data transfer | Demo-scale traffic | 100GB/month, always free | **$0.00** |
+
+> **List-price approximations, not confirmed via the AWS Pricing API** (this
+> account's CLI user isn't granted `pricing:GetProducts`, and adding it
+> just to look up a number felt like scope creep for a demo phase — these
+> are published Tokyo-region list prices, not a verified quote). If this
+> account still has its Free Tier active (new-account only, first 12
+> months), Fargate itself has no free tier but ALB and RDS do, which would
+> reduce the "left up all month" figures notably.
+
+### Phase 05 Total
+
+| Scenario | Cost |
+|----------|------|
+| Destroyed (the recommended default between demos) | **$0.00** |
+| Running for a 1-hour demo | **~$0.06** |
+| Left running for a full month (not recommended) | **~$44–48** |
+
+> This is the **first phase in the portfolio with a real, non-trivial
+> running cost** — Phases 01–04 all round to ~$0/month regardless. That's
+> exactly why teardown got equal engineering attention to deploy: verified
+> for real (`apply` → CRUD test → `destroy`, 18 resources, zero manual
+> cleanup → `apply` again), not just assumed to work because the Terraform
+> looked right.
+
+---
+
+## Phase 06 — Cost Preview (Planned)
 
 | Phase | Key Services Added | Estimated Monthly Cost |
 |-------|-------------------|----------------------|
-| 05 Containers | ECS Fargate, ALB, RDS | ~$30–$80 |
 | 06 DevOps | CodePipeline, CodeBuild | ~$1.00–$5.00 |
-
-> Phase 05 (Containers) has the largest cost jump — Fargate + ALB + RDS run continuously even with zero traffic. Run only when needed to minimize cost.
 
 ---
 
@@ -244,14 +284,55 @@ All estimates assume **low-traffic portfolio usage** (~1,000 visits/month).
 
 ---
 
-## Phase 05–06 — コスト概算（予定）
+## Phase 05 — コンテナ（2026-08-22デプロイ・デモの合間はdestroy前提の設計）
+
+Phase 01〜04と異なり、本Phaseは**常時稼働させない**——`terraform destroy`が
+手動クリーンアップ0件で1コマンド完走するよう設計・実テスト済みである理由は
+[`aws-portfolio-05-containers/README.md`](../aws-portfolio-05-containers/README.md#削除手順deployと同等の重みで記載これが本phaseの主眼)・
+`docs/Architecture.md`参照。以下の数値は**スタックが稼働中の間のみ**——
+それ以外の時間は$0.00。
+
+### 使用サービス（稼働中）
+
+| サービス | 使用量 | 無料枠 | 稼働中の試算 |
+|---------|--------|--------|---------|
+| ECS Fargate | タスク1個・0.25 vCPU/0.5GB・ap-northeast-1 | Fargateコンピュートに無料枠なし | **約$0.017/時間**（1ヶ月起きっぱなしなら約$12〜13） |
+| Application Load Balancer | ALB1台・固定時間課金＋LCU（デモ規模のトラフィックでは無視できる水準） | 750時間/月・12ヶ月（新規アカウントのみ） | **約$0.025/時間**（1ヶ月起きっぱなしなら約$18） |
+| RDS db.t4g.micro | 単一AZ・20GB gp3・Multi-AZなし | 750時間/月＋20GB・12ヶ月（新規アカウントのみ） | **コンピュート約$0.02/時間**＋**ストレージ約$2.40/月**（1ヶ月起きっぱなしなら約$14〜17） |
+| ECRストレージ | イメージ1枚・約63MB | 500MB/月・常時無料 | **$0.00** |
+| データ転送 | デモ規模のトラフィック | 100GB/月・常時無料 | **$0.00** |
+
+> **AWS Pricing APIでは確認していない、公表リスト価格ベースの概算**
+> （このアカウントのCLIユーザーには`pricing:GetProducts`権限がなく、
+> デモ用のPhaseのために数値確認だけのために権限を追加するのはスコープ
+> 過剰と判断した——これらは東京リージョンの公表リスト価格であり、
+> 確認済みの見積もりではない）。このアカウントがまだFree Tier期間
+> （新規アカウントのみ・最初の12ヶ月）であれば、Fargate自体には無料枠は
+> ないがALB・RDSにはあるため、「1ヶ月起きっぱなし」の数値は実際には
+> もっと下がる可能性がある。
+
+### Phase 05 合計
+
+| シナリオ | コスト |
+|----------|------|
+| destroy済み（デモの合間の推奨デフォルト） | **$0.00** |
+| 1時間のデモで稼働 | **約$0.06** |
+| 1ヶ月間起きっぱなし（非推奨） | **約$44〜48** |
+
+> ポートフォリオの中で**初めて実質的な稼働コストが発生するPhase**——
+> Phase 01〜04はすべてトラフィックに関わらず月額約$0に丸まる。だからこそ
+> destroyにdeployと同等のエンジニアリング上の注意を払った——実際に
+> 検証済み（`apply`→CRUD確認→`destroy`、18リソース・手動クリーンアップ
+> 0件→再`apply`）であり、Terraformの見た目が正しいから動くはずと
+> 想定しただけではない。
+
+---
+
+## Phase 06 — コスト概算（予定）
 
 | Phase | 追加主要サービス | 月額概算 |
 |-------|---------------|---------|
-| 05 コンテナ | ECS Fargate・ALB・RDS | 約$30〜$80 |
 | 06 DevOps | CodePipeline・CodeBuild | 約$1.00〜$5.00 |
-
-> Phase 05（コンテナ）がコストの大きな転換点。FargateとRDSはゼロトラフィックでも常時課金されるため、デモ時以外は停止推奨。
 
 ---
 

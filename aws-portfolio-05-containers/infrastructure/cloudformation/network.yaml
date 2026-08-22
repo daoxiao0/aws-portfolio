@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Phase 05 (Containers) - Security groups only. No new VPC/subnets: this
+  phase deliberately reuses the account's existing default VPC and its
+  public subnets (see docs/Architecture.md for why no NAT Gateway either).
+  Reference implementation only, mirrors the Terraform-managed live
+  infrastructure. Never deployed.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: aws-portfolio-05-containers
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Existing default VPC
+  ContainerPort:
+    Type: Number
+    Default: 8000
+
+Resources:
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "ALB - allow HTTP 80 from the internet only"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  EcsTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "ECS task - allow the container port from the ALB SG only"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "RDS - allow port 5432 from the ECS task SG only"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EcsTaskSecurityGroup
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  AlbSecurityGroupId:
+    Value: !Ref AlbSecurityGroup
+  EcsTaskSecurityGroupId:
+    Value: !Ref EcsTaskSecurityGroup
+  RdsSecurityGroupId:
+    Value: !Ref RdsSecurityGroup
