@@ -37,7 +37,7 @@ and an extra `aws_iam_role_policy_attachment` pointing at the AWS-managed
 `AWSLambdaBasicExecutionRole` attachment. Everything else in this phase
 (alarms, dashboard, SNS, log retention) lives in Phase 4's own Terraform
 state and references Phase 3's resources by name/ARN — the same pattern
-`infrastructure/github-oidc/main.tf` already uses to reference Phase 3's S3
+`shared-infra/github-oidc/main.tf` already uses to reference Phase 3's S3
 bucket and Lambda ARNs from a separate state.
 
 ## X-Ray: Lambda-level tracing only, not API Gateway
@@ -160,7 +160,7 @@ tracing_config {
 AWS管理ポリシー`AWSXRayDaemonWriteAccess`を指す`aws_iam_role_policy_attachment`
 をもう1つ追加。それ以外（Alarm・Dashboard・SNS・ログ保持設定）はすべて
 Phase 4自身のTerraform stateに置き、Phase 3のリソースは名前/ARNで参照する
-——`infrastructure/github-oidc/main.tf`がPhase 3のS3バケット・Lambda ARNを
+——`shared-infra/github-oidc/main.tf`がPhase 3のS3バケット・Lambda ARNを
 別stateから参照しているのと同じ方式。
 
 ## X-Ray：Lambda側のみ、API Gateway側は非対応

@@ -17,7 +17,7 @@ variable "alert_email" {
 }
 
 # ---- Phase 3の既存リソース参照（別Terraform stateのため名前/ARNを直接参照する。
-#      infrastructure/github-oidc/main.tf と同じ方式） ----
+#      shared-infra/github-oidc/main.tf と同じ方式） ----
 
 variable "phase3_lambda_function_names" {
   description = "Phase 3の4つのLambda関数名"

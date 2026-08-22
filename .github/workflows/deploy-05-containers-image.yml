@@ -5,7 +5,7 @@
 #   このワークフローはDockerイメージのビルド・ECR pushとECSの強制再デプロイ
 #   のみを行う。ECS/ALB/RDS/セキュリティグループ等のインフラ変更は、
 #   Phase 3と同様、ローカルから`terraform apply`で手動デプロイする。
-#   理由: OIDCで引き受けるデプロイロール（infrastructure/github-oidc/main.tf）に
+#   理由: OIDCで引き受けるデプロイロール（shared-infra/github-oidc/main.tf）に
 #         ECS/RDS/ALBの作成権限までは持たせない方針のため（ECRのpushと
 #         このPhase専用サービスへのforce-new-deploymentのみ許可）。
 #   開発環境にローカルDockerが無いため、初回イメージ作成もこのワークフローの
@@ -51,7 +51,7 @@ jobs:
       - name: Build image (verify Dockerfile, PRs don't push)
         run: docker build -t "$ECR_REPOSITORY:ci" .
 
-      # OIDC認証。ロール定義は infrastructure/github-oidc/main.tf
+      # OIDC認証。ロール定義は shared-infra/github-oidc/main.tf
       - name: Configure AWS credentials
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: aws-actions/configure-aws-credentials@v4

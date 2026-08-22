@@ -5,7 +5,7 @@
 #   このワークフローは Lambda関数コード の更新のみを行う。
 #   Cognito / API Gateway / DynamoDB / IAM ロードなどのインフラ変更は
 #   Phase 2と同様、ローカルから `terraform apply` で手動デプロイする。
-#   理由: OIDCで引き受けるデプロイロール（infrastructure/github-oidc/main.tf）に
+#   理由: OIDCで引き受けるデプロイロール（shared-infra/github-oidc/main.tf）に
 #         IAMロール作成権限までは持たせない方針のため。
 # ============================================================
 
@@ -49,7 +49,7 @@ jobs:
             cd -
           done
 
-      # OIDC認証（2026-07-26移行）。ロール定義は infrastructure/github-oidc/main.tf
+      # OIDC認証（2026-07-26移行）。ロール定義は shared-infra/github-oidc/main.tf
       - name: Configure AWS credentials
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: aws-actions/configure-aws-credentials@v4

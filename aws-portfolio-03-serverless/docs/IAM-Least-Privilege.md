@@ -133,7 +133,7 @@ exists — left over from the switch to OIDC-based deploy authentication
 stored access key"). Confirmed via `aws iam get-user` (404) and by
 checking both `deploy-03-serverless.yml` and `deploy-03-frontend.yml`,
 which already authenticate via OIDC (`AWS_DEPLOY_ROLE_ARN`,
-`infrastructure/github-oidc/main.tf`) and already grant the same
+`shared-infra/github-oidc/main.tf`) and already grant the same
 `lambda:UpdateFunctionCode` / S3 / CloudFront permissions this file was
 trying to attach to the deleted user. The two `aws_iam_user_policy`
 resources that depended on it had already been silently dropped from

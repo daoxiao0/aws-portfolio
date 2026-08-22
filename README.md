@@ -56,7 +56,7 @@ aws-portfolio/
 │   ├── buildspec.yml               # CodeBuild: docker build → ECR push → imagedefinitions.json
 │   ├── docs/                      # Architecture & design decisions
 │   └── infrastructure/terraform/  # CodeConnections, CodeBuild, CodePipeline (Source→Build→Approve→Deploy)
-├── infrastructure/github-oidc/     # Shared, portfolio-wide — not a phase
+├── shared-infra/github-oidc/       # Cross-phase, not a single phase's own infra
 │   └── main.tf                    # The GitHub Actions OIDC IAM role every phase's CI assumes to deploy;
 │                                   # scoped per-resource per phase (see IaC Strategy below), lives outside
 │                                   # any single phase because all 6 phases' workflows share this one role
@@ -139,7 +139,7 @@ aws-portfolio/
 │   ├── buildspec.yml               # CodeBuild: docker build → ECR push → imagedefinitions.json
 │   ├── docs/                      # アーキテクチャ・設計判断
 │   └── infrastructure/terraform/  # CodeConnections・CodeBuild・CodePipeline（Source→Build→Approve→Deploy）
-├── infrastructure/github-oidc/     # 特定のPhaseに属さない、全Phase共通のインフラ
+├── shared-infra/github-oidc/       # 特定のPhaseに属さない、全Phase共通のインフラ
 │   └── main.tf                    # 各PhaseのCIがデプロイ時にassumeするGitHub Actions OIDC IAMロール。
 │                                   # Phase単位でリソース単位に権限を絞っている（下のIaC戦略参照）。
 │                                   # 6つ全Phaseのワークフローがこの1つのロールを共有するため、

@@ -33,7 +33,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # OIDC認証。ロール定義は infrastructure/github-oidc/main.tf
+      # OIDC認証。ロール定義は shared-infra/github-oidc/main.tf
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

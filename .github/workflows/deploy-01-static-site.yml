@@ -176,7 +176,7 @@ jobs:
           # OIDC認証（2026-07-26移行）。長期のアクセスキーはGitHubに置かない。
           # GitHubが短命のトークンを発行し、AWSがそれを一時的な認証情報に交換する。
           #
-          # ロールの定義: infrastructure/github-oidc/main.tf
+          # ロールの定義: shared-infra/github-oidc/main.tf
           # 信頼ポリシーはリポジトリ名ではなく不変の数値IDで照合している
           # （解放されたアカウント名を第三者が取得した場合に備えるため）。
           #
